@@ -7,6 +7,7 @@ use App\Models\Plan;
 use App\Notifications\SubscriptionNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Laravel\Cashier\Exceptions\IncompletePayment;
 
@@ -122,7 +123,16 @@ class SubscriptionController extends Controller
         /** @var \App\Models\User $user */
         $user = $request->user();
         
-        $subscription = $user->subscription('default');
+        // Chercher directement dans la table subscriptions (optimisé - une seule requête)
+        $subscription = DB::table('subscriptions')
+            ->where('user_id', $user->id)
+            ->where('type', 'default')
+            ->where('stripe_status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('ends_at')
+                    ->orWhere('ends_at', '>', now());
+            })
+            ->first();
         
         if (!$subscription) {
             return response()->json([
@@ -132,33 +142,71 @@ class SubscriptionController extends Controller
             ]);
         }
         
-        // Get plan information if available
+        // Trouver le plan associé (requête optimisée)
         $plan = null;
-        if ($subscription->stripe_price) {
-            // Try to find plan by stripe_price_id
-            $plan = Plan::where('stripe_price_id', $subscription->stripe_price)->first();
+        if (str_starts_with($subscription->stripe_id, 'local_starter_')) {
+            // Subscription locale Starter - requête directe
+            $plan = Plan::where('name', 'Starter')
+                ->where('interval', 'month')
+                ->where('active', true)
+                ->first(['id', 'name', 'amount', 'interval', 'description']);
+        } elseif ($subscription->stripe_price) {
+            // Chercher par stripe_price_id
+            $plan = Plan::where('stripe_price_id', $subscription->stripe_price)
+                ->first(['id', 'name', 'amount', 'interval', 'description']);
         }
         
+        // Fallback: si pas de plan trouvé, utiliser Starter
+        if (!$plan && ($subscription->stripe_price === 'free' || !$subscription->stripe_price)) {
+            $plan = Plan::where('name', 'Starter')
+                ->where('interval', 'month')
+                ->where('active', true)
+                ->first(['id', 'name', 'amount', 'interval', 'description']);
+        }
+        
+        // Log pour déboguer (seulement en mode debug pour éviter de ralentir)
+        if (config('app.debug')) {
+            Log::info('Subscription found', [
+                'user_id' => $user->id,
+                'subscription_id' => $subscription->id,
+                'stripe_id' => $subscription->stripe_id,
+                'stripe_price' => $subscription->stripe_price,
+                'plan_found' => $plan ? $plan->id : null,
+                'plan_name' => $plan ? $plan->name : null,
+            ]);
+        }
+        
+        // Vérifier si c'est une subscription locale (non-Stripe)
+        $isLocalSubscription = str_starts_with($subscription->stripe_id, 'local_');
+        
+        // Utiliser les données de la base de données directement pour éviter l'appel Stripe API lent
+        // On évite asStripeSubscription() qui fait un appel API à Stripe
         try {
-            $stripeSubscription = $subscription->asStripeSubscription();
+            // Pour toutes les subscriptions (locales et Stripe), utiliser les données de la DB
+            // Cela évite l'appel API Stripe qui peut être lent
+            $currentPeriodStart = $subscription->created_at ? strtotime($subscription->created_at) : null;
+            $currentPeriodEnd = null;
+            
+            // Pour les subscriptions Stripe, essayer de calculer la période depuis les données DB
+            if (!$isLocalSubscription && $subscription->created_at) {
+                // Si on a une date de création, estimer la fin de période (30 jours après)
+                $currentPeriodStart = strtotime($subscription->created_at);
+                $currentPeriodEnd = strtotime($subscription->created_at . ' +30 days');
+            }
             
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'id' => $subscription->id,
-                    'status' => $subscription->status,
+                    'id' => (string) $subscription->id,
+                    'status' => 'active',
                     'stripe_status' => $subscription->stripe_status,
                     'stripe_price' => $subscription->stripe_price,
-                    'stripe_product' => $subscription->stripe_product,
-                    'trial_ends_at' => $subscription->trial_ends_at?->toIso8601String(),
-                    'ends_at' => $subscription->ends_at?->toIso8601String(),
-                    'current_period_start' => $stripeSubscription->current_period_start 
-                        ? date('c', $stripeSubscription->current_period_start) 
-                        : null,
-                    'current_period_end' => $stripeSubscription->current_period_end 
-                        ? date('c', $stripeSubscription->current_period_end) 
-                        : null,
-                    'cancel_at_period_end' => $subscription->cancel_at_period_end,
+                    'stripe_product' => $isLocalSubscription ? null : ($subscription->stripe_product ?? null),
+                    'trial_ends_at' => $subscription->trial_ends_at ? date('c', strtotime($subscription->trial_ends_at)) : null,
+                    'ends_at' => $subscription->ends_at ? date('c', strtotime($subscription->ends_at)) : null,
+                    'current_period_start' => $currentPeriodStart ? date('c', $currentPeriodStart) : null,
+                    'current_period_end' => $currentPeriodEnd ? date('c', $currentPeriodEnd) : null,
+                    'cancel_at_period_end' => $subscription->cancel_at_period_end ?? false,
                     'plan' => $plan ? [
                         'id' => $plan->id,
                         'name' => $plan->name,
@@ -170,18 +218,20 @@ class SubscriptionController extends Controller
                 ],
             ]);
         } catch (\Exception $e) {
-            // Fallback if Stripe subscription cannot be retrieved
+            // Fallback pour les subscriptions locales
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'id' => $subscription->id,
-                    'status' => $subscription->status,
+                    'id' => (string) $subscription->id,
+                    'status' => 'active',
                     'stripe_status' => $subscription->stripe_status,
                     'stripe_price' => $subscription->stripe_price,
-                    'stripe_product' => $subscription->stripe_product,
-                    'trial_ends_at' => $subscription->trial_ends_at?->toIso8601String(),
-                    'ends_at' => $subscription->ends_at?->toIso8601String(),
-                    'cancel_at_period_end' => $subscription->cancel_at_period_end,
+                    'stripe_product' => null,
+                    'trial_ends_at' => $subscription->trial_ends_at ? date('c', strtotime($subscription->trial_ends_at)) : null,
+                    'ends_at' => $subscription->ends_at ? date('c', strtotime($subscription->ends_at)) : null,
+                    'current_period_start' => $subscription->created_at ? date('c', strtotime($subscription->created_at)) : null,
+                    'current_period_end' => null,
+                    'cancel_at_period_end' => false,
                     'plan' => $plan ? [
                         'id' => $plan->id,
                         'name' => $plan->name,

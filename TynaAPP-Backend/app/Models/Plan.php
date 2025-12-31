@@ -17,6 +17,8 @@ class Plan extends Model
         'amount',
         'currency',
         'trial_days',
+        'quota',
+        'minutes',
         'allow_promotion_codes',
         'active',
         'description',

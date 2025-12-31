@@ -37,6 +37,8 @@ class PlanController extends Controller
                     'amount_formatted' => $plan->amount ? '$' . number_format($plan->amount / 100, 2) : 'Free',
                     'currency' => $plan->currency,
                     'trial_days' => $plan->trial_days,
+                    'quota' => $plan->quota,
+                    'minutes' => $plan->minutes,
                     'allow_promotion_codes' => $plan->allow_promotion_codes,
                     'description' => $plan->description,
                     'active' => $plan->active,

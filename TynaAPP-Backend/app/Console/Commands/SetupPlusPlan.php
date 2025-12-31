@@ -117,6 +117,8 @@ class SetupPlusPlan extends Command
                 'amount' => 1500, // $15.00 en cents
                 'currency' => 'usd',
                 'trial_days' => 7,
+                'quota' => 100, // Quota mensuel par défaut (ex: 100 meetings)
+                'minutes' => 1000, // Minutes mensuelles par défaut (ex: 1000 minutes)
                 'allow_promotion_codes' => true,
                 'description' => 'For professionals who have frequent meetings.',
                 'active' => true,
@@ -128,6 +130,8 @@ class SetupPlusPlan extends Command
         $this->info("   Price ID: {$plan->stripe_price_id}");
         $this->info("   Montant: $" . number_format($plan->amount / 100, 2) . "/mois");
         $this->info("   Trial: {$plan->trial_days} jours");
+        $this->info("   Quota: " . ($plan->quota ?? 'Illimité') . " par mois");
+        $this->info("   Minutes: " . ($plan->minutes ?? 'Illimité') . " par mois");
 
         return 0;
     }

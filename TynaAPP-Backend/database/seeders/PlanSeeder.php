@@ -31,19 +31,21 @@ class PlanSeeder extends Seeder
             [
                 'name' => 'Plus',
                 'stripe_product_id' => 'prod_The9T6xexlrGOj',
-                'stripe_price_id' => 'price_XXXXX_PLUS', // ⚠️ REMPLACER par le vrai Price ID depuis Stripe
+                'stripe_price_id' => 'price_1SkUvJBUXRPoQAUtAzuNpSMY',
                 'interval' => 'month',
                 'amount' => 1500, // $15.00 en cents
                 'currency' => 'usd',
                 'trial_days' => 7,
+                'quota' => 100, // Quota mensuel (ex: 100 meetings)
+                'minutes' => 1000, // Minutes mensuelles (ex: 1000 minutes)
                 'allow_promotion_codes' => true,
                 'description' => 'For professionals who have frequent meetings.',
                 'active' => true,
             ],
             [
                 'name' => 'Pro',
-                'stripe_product_id' => 'prod_The9T6xexlrGOj',
-                'stripe_price_id' => 'price_XXXXX_PRO', // ⚠️ REMPLACER par le vrai Price ID depuis Stripe
+                'stripe_product_id' => 'prod_ThurKy8C0x0dAa',
+                'stripe_price_id' => 'price_1SkV2FBUXRPoQAUtdJj8lHAK',
                 'interval' => 'month',
                 'amount' => 3000, // $30.00 en cents
                 'currency' => 'usd',

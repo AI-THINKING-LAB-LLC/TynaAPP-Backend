@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Notifications\AccountValidationNotification;
 use App\Notifications\UserChangedNotification;
+use App\Services\PlanAssignmentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -35,6 +36,9 @@ class UserController extends Controller
             'email' => $data['email'],
             'password' => Hash::make($data['password']),
         ]);
+
+        // Attribuer automatiquement le plan Starter (gratuit) au nouvel utilisateur
+        PlanAssignmentService::assignStarterPlan($user);
 
         $verificationUrl = URL::temporarySignedRoute(
             'verification.verify',

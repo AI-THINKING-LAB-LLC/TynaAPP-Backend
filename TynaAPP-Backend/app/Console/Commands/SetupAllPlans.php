@@ -63,6 +63,8 @@ class SetupAllPlans extends Command
                 'name' => 'Plus',
                 'amount' => 1500,
                 'trial_days' => 7,
+                'quota' => 100, // Quota mensuel (ex: 100 meetings)
+                'minutes' => 1000, // Minutes mensuelles (ex: 1000 minutes)
                 'allow_promotion_codes' => true,
                 'description' => 'For professionals who have frequent meetings.',
             ],
@@ -123,6 +125,8 @@ class SetupAllPlans extends Command
                         'amount' => $planData['amount'],
                         'currency' => 'usd',
                         'trial_days' => $planData['trial_days'],
+                        'quota' => $planData['quota'] ?? null,
+                        'minutes' => $planData['minutes'] ?? null,
                         'allow_promotion_codes' => $planData['allow_promotion_codes'],
                         'description' => $planData['description'],
                         'active' => true,

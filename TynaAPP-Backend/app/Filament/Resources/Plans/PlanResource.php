@@ -63,11 +63,25 @@ class PlanResource extends Resource
                     ->default('usd')
                     ->required(),
                 TextInput::make('trial_days')
-                    ->label('Jours d’essai')
+                    ->label('Jours d\'essai')
                     ->numeric()
                     ->integer()
                     ->minValue(0)
                     ->nullable(),
+                TextInput::make('quota')
+                    ->label('Quota mensuel')
+                    ->numeric()
+                    ->integer()
+                    ->minValue(0)
+                    ->nullable()
+                    ->helperText('Limite mensuelle (ex: nombre de meetings)'),
+                TextInput::make('minutes')
+                    ->label('Minutes mensuelles')
+                    ->numeric()
+                    ->integer()
+                    ->minValue(0)
+                    ->nullable()
+                    ->helperText('Limite de minutes par mois (ex: 1000 minutes)'),
                 Toggle::make('allow_promotion_codes')
                     ->label('Autoriser codes promo')
                     ->default(false),
@@ -90,6 +104,8 @@ class PlanResource extends Resource
                 TextColumn::make('interval')->label('Intervalle'),
                 TextColumn::make('amount')->label('Montant (cents)')->sortable(),
                 TextColumn::make('currency')->label('Devise'),
+                TextColumn::make('quota')->label('Quota')->sortable(),
+                TextColumn::make('minutes')->label('Minutes')->sortable(),
                 BooleanColumn::make('active')->label('Actif'),
                 TextColumn::make('updated_at')->label('Modifié le')->dateTime(),
             ]);
