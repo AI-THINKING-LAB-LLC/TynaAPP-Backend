@@ -31,9 +31,11 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install production dependencies
+# Copy package files
 COPY package*.json ./
-RUN npm ci --only=production
+
+# Install all dependencies (needed for Vite build and server)
+RUN npm ci
 
 # Copy built frontend
 COPY --from=frontend-builder /app/dist ./dist
