@@ -1,12 +1,13 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Calendar, Play, MoreHorizontal, Link2, RefreshCw, Trash2, Clock, CalendarDays, BarChart3 } from 'lucide-react';
+import { Search, Calendar, Play, MoreHorizontal, Link2, RefreshCw, Trash2, Clock, CalendarDays, BarChart3, Crown, ChevronDown, Check } from 'lucide-react';
 import { Meeting, UserProfile } from '../types';
 import { isToday, isYesterday, isThisWeek, parseISO } from 'date-fns';
 import { 
   isGoogleCalendarConnected, 
   fetchGoogleCalendarEvents
 } from '../services/googleCalendarService';
+import { getCurrentSubscription, CurrentSubscription, createSubscription, fetchPlans } from '../services/planService';
 // Google Calendar sync will be implemented via Laravel API
 // import { syncGoogleCalendarEvents } from '../services/supabaseService';
 
@@ -35,7 +36,49 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
   const [isCalendarConnected, setIsCalendarConnected] = useState(false);
+  const [currentSubscription, setCurrentSubscription] = useState<CurrentSubscription | null>(null);
+  const [loadingSubscription, setLoadingSubscription] = useState(true);
+  const [showPlanDropdown, setShowPlanDropdown] = useState(false);
+  const [availablePlans, setAvailablePlans] = useState<any[]>([]);
   const menuRef = useRef<HTMLDivElement>(null);
+  const planDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Load current subscription and available plans
+  useEffect(() => {
+    const loadData = async () => {
+      setLoadingSubscription(true);
+      try {
+        const subscription = await getCurrentSubscription();
+        setCurrentSubscription(subscription);
+        
+        // Load available plans for dropdown
+        const plans = await fetchPlans('month');
+        setAvailablePlans(plans);
+      } catch (error) {
+        console.error('Error loading subscription:', error);
+      } finally {
+        setLoadingSubscription(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  // Close plan dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (planDropdownRef.current && !planDropdownRef.current.contains(event.target as Node)) {
+        setShowPlanDropdown(false);
+      }
+    };
+
+    if (showPlanDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showPlanDropdown]);
 
   // Check Google Calendar connection status
   useEffect(() => {
@@ -277,7 +320,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           />
         </div>
 
-        <div className="flex items-center justify-end gap-3 w-[200px]">
+        <div className="flex items-center justify-end gap-3">
            <button
              onClick={onOpenAnalytics}
              className="p-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 transition-colors shadow-sm"
@@ -285,6 +328,124 @@ export const Dashboard: React.FC<DashboardProps> = ({
            >
              <BarChart3 size={18} className="text-[#2E6BFF]" />
            </button>
+           
+           {/* Plan Dropdown Menu */}
+           {!loadingSubscription && (
+             <div className="relative" ref={planDropdownRef}>
+               <button
+                 onClick={() => setShowPlanDropdown(!showPlanDropdown)}
+                 className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all hover:border-[#2E6BFF]/30 group"
+               >
+                 <Crown size={14} className="text-[#2E6BFF]" />
+                 <span className="text-[12px] font-medium text-gray-700">
+                   {currentSubscription?.plan?.name || 'Starter'}
+                 </span>
+                 <ChevronDown 
+                   size={14} 
+                   className={`text-gray-500 transition-transform duration-200 ${showPlanDropdown ? 'rotate-180' : ''}`}
+                 />
+               </button>
+               
+               {showPlanDropdown && (
+                 <div className="absolute top-full right-0 mt-2 w-[280px] bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden">
+                   {/* Header */}
+                   <div className="px-4 py-3 bg-gradient-to-r from-[#2E6BFF]/5 to-blue-50 border-b border-gray-100">
+                     <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                       Current Plan
+                     </div>
+                     <div className="flex items-center justify-between">
+                       <div>
+                         <div className="text-[16px] font-bold text-gray-900">
+                           {currentSubscription?.plan?.name || 'Starter'}
+                         </div>
+                         <div className="text-[12px] text-gray-600 mt-0.5">
+                           {currentSubscription?.plan?.amount_formatted || 'Free'}/{currentSubscription?.plan?.interval || 'month'}
+                         </div>
+                       </div>
+                       <Crown size={20} className="text-[#2E6BFF]" />
+                     </div>
+                   </div>
+                   
+                   {/* Plans List */}
+                   <div className="max-h-[320px] overflow-y-auto">
+                     {availablePlans.map((plan) => {
+                       const isCurrentPlan = currentSubscription?.plan?.id === plan.id;
+                       const isStarter = plan.name === 'Starter';
+                       
+                       return (
+                         <button
+                           key={plan.id}
+                           onClick={async () => {
+                             if (isCurrentPlan || isStarter) {
+                               setShowPlanDropdown(false);
+                               return;
+                             }
+                             
+                             try {
+                               const successUrl = `${window.location.origin}/dashboard?subscription=success`;
+                               const cancelUrl = `${window.location.origin}/dashboard?subscription=cancelled`;
+                               const { checkout_url } = await createSubscription(plan.id, successUrl, cancelUrl);
+                               window.location.href = checkout_url;
+                             } catch (error) {
+                               console.error('Failed to create subscription:', error);
+                               const errorMessage = error instanceof Error ? error.message : 'Failed to upgrade. Please try again.';
+                               alert(errorMessage);
+                               setShowPlanDropdown(false);
+                             }
+                           }}
+                           className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 ${
+                             isCurrentPlan ? 'bg-blue-50' : ''
+                           }`}
+                         >
+                           <div className="flex items-center justify-between">
+                             <div className="flex-1">
+                               <div className="flex items-center gap-2">
+                                 <div className={`text-[14px] font-semibold ${isCurrentPlan ? 'text-blue-700' : 'text-gray-900'}`}>
+                                   {plan.name}
+                                 </div>
+                                 {isCurrentPlan && (
+                                   <Check size={14} className="text-blue-600" />
+                                 )}
+                               </div>
+                               <div className="text-[12px] text-gray-500 mt-1">
+                                 {plan.description}
+                               </div>
+                               <div className="flex items-baseline gap-1 mt-2">
+                                 <span className={`text-[16px] font-bold ${isCurrentPlan ? 'text-blue-700' : 'text-gray-900'}`}>
+                                   {plan.amount_formatted}
+                                 </span>
+                                 <span className="text-[11px] text-gray-500">/{plan.interval}</span>
+                               </div>
+                             </div>
+                             {!isCurrentPlan && !isStarter && (
+                               <div className="ml-3 px-3 py-1.5 bg-[#2E6BFF] text-white text-[11px] font-semibold rounded-md hover:bg-[#2563EB] transition-colors whitespace-nowrap">
+                                 Upgrade
+                               </div>
+                             )}
+                           </div>
+                         </button>
+                       );
+                     })}
+                   </div>
+                   
+                   {/* Footer */}
+                   <div className="px-4 py-2 bg-gray-50 border-t border-gray-100">
+                     <button
+                       onClick={() => {
+                         setShowPlanDropdown(false);
+                         // Navigate to settings or open plan selector
+                         window.location.href = `${window.location.origin}/settings`;
+                       }}
+                       className="text-[11px] text-gray-600 hover:text-[#2E6BFF] transition-colors"
+                     >
+                       View all plans →
+                     </button>
+                   </div>
+                 </div>
+               )}
+             </div>
+           )}
+
            <div 
              onClick={onOpenSettings}
              className="w-[32px] h-[32px] rounded-full bg-gradient-to-tr from-blue-100 to-indigo-100 overflow-hidden ring-2 ring-white shadow-sm cursor-pointer hover:shadow-md transition-shadow active:scale-95 shrink-0"

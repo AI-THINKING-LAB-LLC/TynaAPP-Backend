@@ -912,6 +912,7 @@ const PricingPage: React.FC<PricingPageProps> = ({ onBack, onGetStarted }) => {
     const [plans, setPlans] = useState<Plan[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [currentSubscription, setCurrentSubscription] = useState<any>(null);
 
     // Charger les plans depuis le backend
     useEffect(() => {
@@ -923,6 +924,16 @@ const PricingPage: React.FC<PricingPageProps> = ({ onBack, onGetStarted }) => {
                 const fetchedPlans = await fetchPlans(interval);
                 console.log('[PricingPage] Plans loaded:', fetchedPlans);
                 setPlans(fetchedPlans);
+                
+                // Charger la subscription actuelle si l'utilisateur est connecté
+                try {
+                    const { getCurrentSubscription } = await import('../services/planService');
+                    const subscription = await getCurrentSubscription();
+                    setCurrentSubscription(subscription);
+                } catch (err) {
+                    // Ignore si l'utilisateur n'est pas connecté
+                    console.log('[PricingPage] No current subscription (user not logged in)');
+                }
             } catch (err) {
                 console.error('[PricingPage] Error loading plans:', err);
                 setError('Failed to load plans. Please try again.');
@@ -975,6 +986,10 @@ const PricingPage: React.FC<PricingPageProps> = ({ onBack, onGetStarted }) => {
                         const isPopular = plan.name === 'Plus' || index === 1;
                         const period = plan.interval === 'year' ? 'year' : 'month';
                         const hasTrial = plan.trial_days && plan.trial_days > 0;
+                        const isCurrentPlan = currentSubscription?.plan?.id === plan.id;
+                        const isStarter = plan.name === 'Starter';
+                        const isPlus = plan.name === 'Plus';
+                        const isPro = plan.name === 'Pro';
                         
                         return (
                             <div key={plan.id} className={`pricing-card ${isPopular ? 'popular' : ''}`}>
@@ -1019,11 +1034,23 @@ const PricingPage: React.FC<PricingPageProps> = ({ onBack, onGetStarted }) => {
                                         </>
                                     )}
                                 </ul>
-                                <button 
-                                    onClick={async () => {
-                                        if (plan.amount === 0) {
-                                            onGetStarted();
-                                        } else {
+                                {isStarter && isCurrentPlan ? (
+                                    <button
+                                        disabled
+                                        className={`btn-pricing ${isPopular ? 'purple' : 'dark'} opacity-50 cursor-not-allowed`}
+                                    >
+                                        Current plan
+                                    </button>
+                                ) : isStarter ? (
+                                    <button
+                                        disabled
+                                        className={`btn-pricing ${isPopular ? 'purple' : 'dark'} opacity-50 cursor-not-allowed`}
+                                    >
+                                        Current plan
+                                    </button>
+                                ) : isPlus ? (
+                                    <button 
+                                        onClick={async () => {
                                             try {
                                                 const { createSubscription } = await import('../services/planService');
                                                 const successUrl = `${window.location.origin}/dashboard?subscription=success`;
@@ -1035,12 +1062,31 @@ const PricingPage: React.FC<PricingPageProps> = ({ onBack, onGetStarted }) => {
                                                 const errorMessage = error instanceof Error ? error.message : 'Failed to start subscription. Please try again.';
                                                 alert(errorMessage);
                                             }
-                                        }
-                                    }}
-                                    className={`btn-pricing ${isPopular ? 'purple' : 'dark'}`}
-                                >
-                                    {plan.amount === 0 ? 'Get Started' : hasTrial ? `Start ${plan.trial_days}-Day Free Trial` : 'Subscribe'}
-                                </button>
+                                        }}
+                                        className={`btn-pricing ${isPopular ? 'purple' : 'dark'}`}
+                                    >
+                                        {currentSubscription ? 'Upgrade' : 'Subscribe'}
+                                    </button>
+                                ) : isPro ? (
+                                    <button 
+                                        onClick={async () => {
+                                            try {
+                                                const { createSubscription } = await import('../services/planService');
+                                                const successUrl = `${window.location.origin}/dashboard?subscription=success`;
+                                                const cancelUrl = `${window.location.origin}/pricing?subscription=cancelled`;
+                                                const { checkout_url } = await createSubscription(plan.id, successUrl, cancelUrl);
+                                                window.location.href = checkout_url;
+                                            } catch (error) {
+                                                console.error('Failed to create subscription:', error);
+                                                const errorMessage = error instanceof Error ? error.message : 'Failed to start subscription. Please try again.';
+                                                alert(errorMessage);
+                                            }
+                                        }}
+                                        className={`btn-pricing ${isPopular ? 'purple' : 'dark'}`}
+                                    >
+                                        {currentSubscription ? 'Upgrade' : 'Subscribe'}
+                                    </button>
+                                ) : null}
                             </div>
                         );
                     })
@@ -1061,7 +1107,7 @@ const PricingPage: React.FC<PricingPageProps> = ({ onBack, onGetStarted }) => {
                                 <li className="feature-item"><Check size={16} className="feature-check" /> Email summaries</li>
                                 <li className="feature-item"><Check size={16} className="feature-check" /> 24-hour support response</li>
                             </ul>
-                            <button onClick={onGetStarted} className="btn-pricing dark">Get Started</button>
+                            <button disabled className="btn-pricing dark opacity-50 cursor-not-allowed">Current plan</button>
                         </div>
                         <div className="pricing-card popular">
                             <div className="popular-badge">Most Popular</div>
@@ -1080,7 +1126,7 @@ const PricingPage: React.FC<PricingPageProps> = ({ onBack, onGetStarted }) => {
                                 <li className="feature-item"><Check size={16} className="feature-check" /> Contact intelligence</li>
                                 <li className="feature-item"><Check size={16} className="feature-check" /> Priority support</li>
                             </ul>
-                            <button onClick={onGetStarted} className="btn-pricing purple">Start Free Trial</button>
+                            <button onClick={onGetStarted} className="btn-pricing purple">{currentSubscription ? 'Upgrade' : 'Subscribe'}</button>
                         </div>
                         <div className="pricing-card">
                             <h3 className="plan-name">Pro</h3>
@@ -1098,7 +1144,7 @@ const PricingPage: React.FC<PricingPageProps> = ({ onBack, onGetStarted }) => {
                                 <li className="feature-item"><Check size={16} className="feature-check" /> API access</li>
                                 <li className="feature-item"><Check size={16} className="feature-check" /> Dedicated account manager</li>
                             </ul>
-                            <button onClick={onGetStarted} className="btn-pricing dark">Start Free Trial</button>
+                            <button onClick={onGetStarted} className="btn-pricing dark">{currentSubscription ? 'Upgrade' : 'Subscribe'}</button>
                         </div>
                     </>
                 )}

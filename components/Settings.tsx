@@ -161,34 +161,45 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, userProfile, onLogou
     checkConnection();
   }, []);
 
-  // Charger l'abonnement actuel
+  // Charger l'abonnement actuel et les plans disponibles
   useEffect(() => {
-    const loadSubscription = async () => {
+    const loadData = async () => {
       try {
         setLoadingSubscription(true);
         const subscription = await getCurrentSubscription();
+        console.log('[Settings] Subscription loaded:', subscription);
         setCurrentSubscription(subscription);
+        
+        // Charger les plans disponibles pour le menu déroulant
+        const plans = await fetchPlans('month');
+        setAvailablePlans(plans);
       } catch (error) {
         console.error('Error loading subscription:', error);
       } finally {
         setLoadingSubscription(false);
       }
     };
-    loadSubscription();
+    loadData();
   }, []);
 
-  // Charger les plans disponibles quand on ouvre le sélecteur
+  // Charger les plans disponibles et recharger la subscription quand on ouvre le sélecteur
   useEffect(() => {
     if (showPlanSelector) {
-      const loadPlans = async () => {
+      const loadData = async () => {
         try {
+          // Recharger la subscription actuelle
+          const subscription = await getCurrentSubscription();
+          setCurrentSubscription(subscription);
+          console.log('[Settings] Current subscription reloaded:', subscription);
+          
+          // Charger les plans
           const plans = await fetchPlans('month');
           setAvailablePlans(plans);
         } catch (error) {
           console.error('Error loading plans:', error);
         }
       };
-      loadPlans();
+      loadData();
     }
   }, [showPlanSelector]);
 
@@ -1048,52 +1059,80 @@ export const Settings: React.FC<SettingsProps> = ({ onBack, userProfile, onLogou
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {availablePlans.length > 0 ? (
-                availablePlans.map((plan) => (
-                  <div
-                    key={plan.id}
-                    className={`border rounded-[12px] p-4 ${
-                      currentSubscription?.plan?.id === plan.id
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <h3 className="text-[18px] font-bold mb-2">{plan.name}</h3>
-                    <div className="text-[32px] font-bold mb-2">
-                      {plan.amount_formatted}
-                      <span className="text-[14px] text-gray-500">/{plan.interval}</span>
+                availablePlans.map((plan) => {
+                  const isCurrentPlan = currentSubscription?.plan?.id === plan.id;
+                  const isStarter = plan.name === 'Starter';
+                  const isPlus = plan.name === 'Plus';
+                  const isPro = plan.name === 'Pro';
+                  
+                  return (
+                    <div
+                      key={plan.id}
+                      className={`border rounded-[12px] p-4 ${
+                        isCurrentPlan
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <h3 className="text-[18px] font-bold mb-2">{plan.name}</h3>
+                      <div className="text-[32px] font-bold mb-2">
+                        {plan.amount_formatted}
+                        <span className="text-[14px] text-gray-500">/{plan.interval}</span>
+                      </div>
+                      <p className="text-[13px] text-gray-600 mb-4">{plan.description}</p>
+                      
+                      {isStarter && isCurrentPlan ? (
+                        <div className="w-full px-4 py-2 bg-gray-100 text-gray-600 text-[13px] font-medium rounded-[8px] text-center">
+                          Current plan
+                        </div>
+                      ) : isStarter ? (
+                        <div className="w-full px-4 py-2 bg-gray-100 text-gray-600 text-[13px] font-medium rounded-[8px] text-center">
+                          Current plan
+                        </div>
+                      ) : isPlus ? (
+                        <button
+                          onClick={async () => {
+                            try {
+                              const { checkout_url } = await createSubscription(
+                                plan.id,
+                                `${window.location.origin}/dashboard?subscription=success`,
+                                `${window.location.origin}/settings?subscription=cancelled`
+                              );
+                              window.location.href = checkout_url;
+                            } catch (error) {
+                              console.error('Failed to create subscription:', error);
+                              const errorMessage = error instanceof Error ? error.message : 'Failed to start subscription. Please try again.';
+                              alert(errorMessage);
+                            }
+                          }}
+                          className="w-full px-4 py-2 bg-[#111] text-white text-[13px] font-medium rounded-[8px] hover:bg-[#222] transition-colors"
+                        >
+                          {currentSubscription ? 'Upgrade' : 'Subscribe'}
+                        </button>
+                      ) : isPro ? (
+                        <button
+                          onClick={async () => {
+                            try {
+                              const { checkout_url } = await createSubscription(
+                                plan.id,
+                                `${window.location.origin}/dashboard?subscription=success`,
+                                `${window.location.origin}/settings?subscription=cancelled`
+                              );
+                              window.location.href = checkout_url;
+                            } catch (error) {
+                              console.error('Failed to create subscription:', error);
+                              const errorMessage = error instanceof Error ? error.message : 'Failed to start subscription. Please try again.';
+                              alert(errorMessage);
+                            }
+                          }}
+                          className="w-full px-4 py-2 bg-[#111] text-white text-[13px] font-medium rounded-[8px] hover:bg-[#222] transition-colors"
+                        >
+                          {currentSubscription ? 'Upgrade' : 'Subscribe'}
+                        </button>
+                      ) : null}
                     </div>
-                    <p className="text-[13px] text-gray-600 mb-4">{plan.description}</p>
-                    
-                    {currentSubscription?.plan?.id === plan.id ? (
-                      <button
-                        disabled
-                        className="w-full px-4 py-2 bg-gray-200 text-gray-600 text-[13px] font-medium rounded-[8px] cursor-not-allowed"
-                      >
-                        Current Plan
-                      </button>
-                    ) : (
-                      <button
-                        onClick={async () => {
-                          try {
-                            const { checkout_url } = await createSubscription(
-                              plan.id,
-                              `${window.location.origin}/dashboard?subscription=success`,
-                              `${window.location.origin}/settings?subscription=cancelled`
-                            );
-                            window.location.href = checkout_url;
-                          } catch (error) {
-                            console.error('Failed to create subscription:', error);
-                            const errorMessage = error instanceof Error ? error.message : 'Failed to start subscription. Please try again.';
-                            alert(errorMessage);
-                          }
-                        }}
-                        className="w-full px-4 py-2 bg-[#111] text-white text-[13px] font-medium rounded-[8px] hover:bg-[#222] transition-colors"
-                      >
-                        {plan.amount === 0 ? 'Get Started' : 'Subscribe'}
-                      </button>
-                    )}
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="col-span-3 text-center py-8 text-gray-500">
                   Loading plans...
