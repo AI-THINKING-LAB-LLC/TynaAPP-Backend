@@ -1,0 +1,78 @@
+# Dockerfile pour Railway - Frontend + Backend avec Nginx
+# Frontend à la racine, Backend sous /admin
+
+# Stage 1: Build Frontend
+FROM node:20-alpine AS frontend-builder
+
+WORKDIR /app
+
+COPY package*.json ./
+COPY tsconfig.json ./
+COPY vite.config.ts ./
+
+RUN npm ci
+
+COPY index.html ./
+COPY index.tsx ./
+COPY App.tsx ./
+COPY components/ ./components/
+COPY services/ ./services/
+COPY types.ts ./
+COPY vite-env.d.ts ./
+COPY public/ ./public/
+
+RUN npm run build
+
+# Stage 2: Backend Laravel
+FROM php:8.2-fpm-alpine AS backend
+
+RUN apk add --no-cache \
+    git \
+    curl \
+    unzip \
+    libzip-dev \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    libpq-dev \
+    libicu-dev \
+    nginx
+
+RUN docker-php-ext-install pdo_mysql pdo_pgsql mbstring exif pcntl bcmath gd zip intl
+
+RUN curl -sS https://getcomposer.org/installer | php && \
+    mv composer.phar /usr/local/bin/composer
+
+WORKDIR /var/www/backend
+
+COPY TynaAPP-Backend/composer.json TynaAPP-Backend/composer.lock ./
+RUN composer install --no-dev --optimize-autoloader --no-interaction
+
+COPY TynaAPP-Backend/ ./
+
+# Stage 3: Production - Nginx + Frontend + Backend
+FROM nginx:alpine
+
+# Installer PHP-FPM pour Laravel
+RUN apk add --no-cache php82-fpm php82-pdo_sqlite php82-intl php82-mbstring php82-xml php82-curl php82-zip
+
+# Copier le frontend buildé
+COPY --from=frontend-builder /app/dist /usr/share/nginx/html
+
+# Copier le backend Laravel
+COPY --from=backend /var/www/backend /var/www/backend
+
+# Copier configuration nginx
+COPY nginx.conf /etc/nginx/templates/default.conf.template
+
+# Script de démarrage
+COPY start-railway-complete.sh /start.sh
+RUN chmod +x /start.sh
+
+# Créer le répertoire pour la base de données SQLite
+RUN mkdir -p /tmp && chmod 777 /tmp
+
+EXPOSE $PORT
+
+CMD ["/start.sh"]
+

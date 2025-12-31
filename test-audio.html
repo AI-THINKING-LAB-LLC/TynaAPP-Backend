@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Audio</title>
+</head>
+<body>
+    <h1>Test Microphone & AssemblyAI</h1>
+    <button id="start">Start Recording</button>
+    <button id="stop" disabled>Stop Recording</button>
+    <div id="status"></div>
+    <div id="transcript"></div>
+
+    <script>
+        let audioContext = null;
+        let stream = null;
+        let processor = null;
+        let ws = null;
+
+        const status = document.getElementById('status');
+        const transcript = document.getElementById('transcript');
+
+        document.getElementById('start').onclick = async () => {
+            try {
+                status.textContent = 'Requesting microphone...';
+                
+                // Get microphone
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                status.textContent = '✓ Microphone granted';
+
+                // Create audio context
+                audioContext = new AudioContext({ sampleRate: 16000 });
+                const source = audioContext.createMediaStreamSource(stream);
+
+                // Connect to WebSocket
+                status.textContent = 'Connecting to AssemblyAI...';
+                ws = new WebSocket('ws://localhost:3001/ws');
+                
+                ws.onopen = () => {
+                    status.textContent = '✓ Connected to AssemblyAI';
+                    document.getElementById('start').disabled = true;
+                    document.getElementById('stop').disabled = false;
+                };
+
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    console.log('Message:', data);
+                    
+                    if (data.type === 'Turn' && data.transcript) {
+                        transcript.textContent += data.transcript + '\n';
+                    }
+                };
+
+                ws.onerror = (err) => {
+                    status.textContent = '✗ WebSocket error: ' + err;
+                };
+
+                // Use ScriptProcessor
+                processor = audioContext.createScriptProcessor(4096, 1, 1);
+                source.connect(processor);
+                processor.connect(audioContext.destination);
+
+                let buffer = [];
+                const bufferSize = 8192;
+
+                processor.onaudioprocess = (e) => {
+                    const inputData = e.inputBuffer.getChannelData(0);
+                    
+                    for (let i = 0; i < inputData.length; i++) {
+                        buffer.push(inputData[i]);
+                    }
+                    
+                    if (buffer.length >= bufferSize && ws && ws.readyState === WebSocket.OPEN) {
+                        const int16 = new Int16Array(buffer.length);
+                        for (let i = 0; i < buffer.length; i++) {
+                            const s = Math.max(-1, Math.min(1, buffer[i]));
+                            int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                        }
+                        console.log('Sending', int16.buffer.byteLength, 'bytes');
+                        ws.send(int16.buffer);
+                        buffer = [];
+                    }
+                };
+
+            } catch (err) {
+                status.textContent = '✗ Error: ' + err.message;
+                console.error(err);
+            }
+        };
+
+        document.getElementById('stop').onclick = () => {
+            if (processor) processor.disconnect();
+            if (stream) stream.getTracks().forEach(t => t.stop());
+            if (ws) ws.close();
+            if (audioContext) audioContext.close();
+            
+            document.getElementById('start').disabled = false;
+            document.getElementById('stop').disabled = true;
+            status.textContent = 'Stopped';
+        };
+    </script>
+</body>
+</html>

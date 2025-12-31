@@ -1,0 +1,7 @@
+{
+  "name": "Tyna - AI Meeting Assistant",
+  "description": "An AI-powered meeting assistant that listens, transcribes, and summarizes your meetings in real-time.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

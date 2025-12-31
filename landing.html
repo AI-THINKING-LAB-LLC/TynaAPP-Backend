@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tyna | The Invisible AI Meeting Assistant</title>
+    <meta name="description" content="Tyna is the #1 invisible AI meeting assistant. Get real-time answers, transcripts, and notes without a bot joining your call.">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;500;600&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        :root {
+            /* Colors */
+            --bg-dark: #0A1628;
+            --bg-darker: #050C16;
+            --accent-teal: #00D4AA;
+            --accent-purple: #7B61FF;
+            --accent-blue: #3B82F6;
+            --text-main: #FFFFFF;
+            --text-muted: #94A3B8;
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.06);
+            --glass-highlight: rgba(255, 255, 255, 0.1);
+            
+            /* Gradients */
+            --gradient-main: linear-gradient(135deg, var(--accent-teal) 0%, var(--accent-purple) 100%);
+            --gradient-text: linear-gradient(135deg, #FFFFFF 30%, #94A3B8 100%);
+            --gradient-glow: radial-gradient(circle at center, rgba(123, 97, 255, 0.15) 0%, rgba(10, 22, 40, 0) 70%);
+            
+            /* Spacing & Sizes */
+            --container-width: 1200px;
+            --nav-height: 80px;
+            --radius-md: 12px;
+            --radius-lg: 24px;
+            
+            /* Animation */
+            --ease-out: cubic-bezier(0.215, 0.61, 0.355, 1);
+        }
+
+        /* Reset & Base */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Space Grotesk', sans-serif;
+            line-height: 1.1;
+            letter-spacing: -0.02em;
+        }
+
+        a {
+            text-decoration: none;
+            color: inherit;
+            transition: color 0.3s ease;
+        }
+
+        ul {
+            list-style: none;
+        }
+
+        /* Utilities */
+        .container {
+            max-width: var(--container-width);
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        .gradient-text {
+            background: var(--gradient-main);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: inline-block;
+        }
+
+        .section-padding {
+            padding: 120px 0;
+        }
+
+        /* Ambient Background */
+        .ambient-glow {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .blob {
+            position: absolute;
+            filter: blur(80px);
+            opacity: 0.4;
+            animation: float 20s infinite alternate;
+        }
+
+        .blob-1 {
+            top: -10%;
+            left: -10%;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--accent-purple) 0%, transparent 70%);
+        }
+
+        .blob-2 {
+            bottom: -10%;
+            right: -10%;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, var(--accent-teal) 0%, transparent 70%);
+            animation-delay: -5s;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 14px 32px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 100px;
+            cursor: pointer;
+            transition: all 0.4s var(--ease-out);
+            border: none;
+            position: relative;
+            overflow: hidden;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--gradient-main);
+            color: white;
+            box-shadow: 0 10px 20px -5px rgba(123, 97, 255, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 15px 30px -5px rgba(0, 212, 170, 0.4);
+            color: white;
+        }
+
+        .btn-glass {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .btn-glass:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Navigation */
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: var(--nav-height);
+            z-index: 1000;
+            transition: all 0.3s ease;
+            border-bottom: 1px solid transparent;
+        }
+
+        .navbar.scrolled {
+            background: rgba(10, 22, 40, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .nav-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 100%;
+        }
+
+        .logo {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logo-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-teal);
+            border-radius: 50%;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 40px;
+        }
+
+        .nav-link {
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--text-muted);
+            position: relative;
+        }
+
+        .nav-link:hover {
+            color: white;
+        }
+
+        /* Hero Section */
+        .hero {
+            height: 100vh;
+            min-height: 700px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding-top: var(--nav-height);
+            position: relative;
+        }
+
+        .hero-content {
+            max-width: 800px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .hero h1 {
+            font-size: clamp(48px, 5vw, 72px);
+            font-weight: 700;
+            margin-bottom: 24px;
+            line-height: 1.1;
+        }
+
+        .hero p {
+            font-size: clamp(18px, 2vw, 20px);
+            color: var(--text-muted);
+            margin-bottom: 40px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* Features Section */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 32px;
+            margin-top: 64px;
+        }
+
+        .feature-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: 40px 32px;
+            transition: all 0.4s var(--ease-out);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            opacity: 0.5;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-8px);
+            background: rgba(255, 255, 255, 0.05);
+            border-color: var(--glass-highlight);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+
+        .feature-icon {
+            font-size: 32px;
+            margin-bottom: 24px;
+            display: inline-block;
+            background: rgba(255,255,255,0.05);
+            padding: 16px;
+            border-radius: 16px;
+        }
+
+        .feature-card h3 {
+            font-size: 22px;
+            margin-bottom: 12px;
+            color: white;
+        }
+
+        .feature-card p {
+            color: var(--text-muted);
+            font-size: 15px;
+        }
+
+        /* How It Works */
+        .steps-container {
+            display: flex;
+            flex-direction: column;
+            gap: 48px;
+            margin-top: 64px;
+        }
+
+        .step-item {
+            display: flex;
+            align-items: center;
+            gap: 48px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: 48px;
+            position: relative;
+        }
+
+        .step-number {
+            font-size: 80px;
+            font-weight: 700;
+            background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-family: 'Space Grotesk', sans-serif;
+            line-height: 0.8;
+        }
+
+        .step-content h3 {
+            font-size: 24px;
+            margin-bottom: 12px;
+            color: var(--accent-teal);
+        }
+
+        .step-content p {
+            color: var(--text-muted);
+        }
+
+        /* Comparison Section */
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-top: 64px;
+        }
+
+        .comparison-card {
+            padding: 48px;
+            border-radius: var(--radius-lg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+
+        .comp-bad {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--glass-border);
+            opacity: 0.7;
+            transition: opacity 0.3s;
+        }
+        .comp-bad:hover { opacity: 1; }
+
+        .comp-good {
+            background: rgba(10, 22, 40, 0.6);
+            border: 1px solid rgba(0, 212, 170, 0.3);
+            position: relative;
+            box-shadow: 0 0 40px rgba(0, 212, 170, 0.1);
+        }
+
+        .comp-good::after {
+            content: 'RECOMMENDED';
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--accent-teal);
+            color: var(--bg-dark);
+            padding: 4px 12px;
+            border-radius: 100px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+        }
+
+        .comp-header {
+            text-align: center;
+            margin-bottom: 32px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .comp-list li {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+            font-size: 15px;
+            color: var(--text-muted);
+        }
+
+        .icon-x { color: #EF4444; font-size: 20px; }
+        .icon-check { color: var(--accent-teal); font-size: 20px; }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 32px;
+            text-align: center;
+            margin-top: 64px;
+        }
+
+        .stat-item h3 {
+            font-size: 56px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: var(--gradient-main);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stat-label {
+            display: block;
+            font-weight: 600;
+            color: white;
+            margin-bottom: 8px;
+            font-size: 18px;
+        }
+
+        .stat-desc {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        /* FAQ */
+        .faq-grid {
+            max-width: 800px;
+            margin: 64px auto 0;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .faq-item {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .faq-header {
+            padding: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .faq-header:hover {
+            background: rgba(255,255,255,0.02);
+        }
+
+        .faq-icon {
+            transition: transform 0.3s ease;
+            font-size: 20px;
+            color: var(--accent-purple);
+        }
+
+        .faq-item.active .faq-icon {
+            transform: rotate(180deg);
+        }
+
+        .faq-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+            padding: 0 24px;
+        }
+
+        .faq-item.active .faq-body {
+            padding-bottom: 24px;
+            color: var(--text-muted);
+        }
+
+        /* Footer */
+        footer {
+            background: var(--bg-darker);
+            border-top: 1px solid var(--glass-border);
+            padding-top: 80px;
+        }
+
+        .footer-cta {
+            text-align: center;
+            margin-bottom: 80px;
+            padding: 0 24px;
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 40px;
+            margin-bottom: 60px;
+        }
+
+        .footer-col h4 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 24px;
+            color: white;
+        }
+
+        .footer-col ul li {
+            margin-bottom: 12px;
+        }
+
+        .footer-col a {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .footer-col a:hover {
+            color: var(--accent-teal);
+        }
+
+        .footer-bottom {
+            border-top: 1px solid var(--glass-border);
+            padding: 32px 0;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        /* Section Header Shared */
+        .section-header {
+            text-align: center;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .section-header h2 {
+            font-size: 36px;
+            margin-bottom: 16px;
+        }
+        .section-header p {
+            color: var(--text-muted);
+            font-size: 18px;
+        }
+
+        /* Animations */
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(30px, -30px) scale(1.1); }
+        }
+
+        .fade-in {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.8s var(--ease-out), transform 0.8s var(--ease-out);
+        }
+
+        .fade-in.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .delay-100 { transition-delay: 0.1s; }
+        .delay-200 { transition-delay: 0.2s; }
+        .delay-300 { transition-delay: 0.3s; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 42px; }
+            .comparison-grid { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: 1fr; }
+            .footer-grid { grid-template-columns: 1fr 1fr; }
+            .nav-links { display: none; } /* Simplified for single file demo */
+            .step-item { flex-direction: column; text-align: center; gap: 24px; padding: 32px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Ambient Background -->
+    <div class="ambient-glow">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container nav-container">
+            <a href="#" class="logo">
+                Tyna<span class="logo-dot"></span>
+            </a>
+            <ul class="nav-links">
+                <li><a href="#features" class="nav-link">Features</a></li>
+                <li><a href="#how-it-works" class="nav-link">How It Works</a></li>
+                <li><a href="#undetectable" class="nav-link">Undetectable</a></li>
+                <li><a href="#faq" class="nav-link">FAQ</a></li>
+            </ul>
+            <a href="index.html" class="btn btn-primary" style="padding: 10px 24px; font-size: 14px;">Get Tyna</a>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero" id="hero">
+        <div class="container hero-content">
+            <h1 class="fade-in">
+                The #1 <span class="gradient-text">Invisible</span><br>
+                AI Meeting Assistant
+            </h1>
+            <p class="fade-in delay-100">
+                Takes flawless notes, answers questions in real-time, and makes you the most prepared person on every call—completely undetectable.
+            </p>
+            <div class="fade-in delay-200">
+                <a href="index.html" class="btn btn-primary">Get Tyna for today &rarr;</a>
+            </div>
+            
+            <!-- Dashboard Preview Placeholder with Glass Effect -->
+            <div class="fade-in delay-300" style="margin-top: 60px; position: relative;">
+                <div style="background: rgba(10, 22, 40, 0.5); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; overflow: hidden; box-shadow: 0 40px 80px -20px rgba(0,0,0,0.5);">
+                    <img src="https://images.unsplash.com/photo-1611162617474-5b21e879e113?q=80&w=2574&auto=format&fit=crop" alt="App Dashboard Interface" style="width: 100%; display: block; opacity: 0.8;">
+                    <div style="position: absolute; inset: 0; background: radial-gradient(circle at center, transparent 0%, var(--bg-dark) 100%); pointer-events: none;"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="section-padding" id="features">
+        <div class="container">
+            <div class="section-header fade-in">
+                <h2>Four ways Tyna <span class="gradient-text">elevates</span> your meetings</h2>
+                <p>Advanced intelligence that works silently in the background.</p>
+            </div>
+            
+            <div class="features-grid">
+                <!-- Feature 1 -->
+                <div class="feature-card fade-in delay-100">
+                    <div class="feature-icon"><i class="ph ph-crosshair"></i></div>
+                    <h3>Real-time Intelligence</h3>
+                    <p>Tyna uses transcript analysis and AI to answer questions and provide context instantly, right when you need it.</p>
+                </div>
+                <!-- Feature 2 -->
+                <div class="feature-card fade-in delay-200">
+                    <div class="feature-icon"><i class="ph ph-envelope-simple"></i></div>
+                    <h3>Instant Follow-ups</h3>
+                    <p>Send perfectly crafted follow-up emails within seconds after every call, capturing all key points and action items automatically.</p>
+                </div>
+                <!-- Feature 3 -->
+                <div class="feature-card fade-in delay-300">
+                    <div class="feature-icon"><i class="ph ph-user-focus"></i></div>
+                    <h3>Deep Contact Intelligence</h3>
+                    <p>Learn everything about your contacts before meetings—their background, interests, role, company insights, and relevant context.</p>
+                </div>
+                <!-- Feature 4 -->
+                <div class="feature-card fade-in delay-100">
+                    <div class="feature-icon"><i class="ph ph-notebook"></i></div>
+                    <h3>Beautiful Meeting Notes</h3>
+                    <p>AI-generated meeting notes that are instantly shareable, perfectly formatted, and capture every important detail from your conversations.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="section-padding" id="how-it-works">
+        <div class="container">
+            <div class="section-header fade-in">
+                <h2>Meeting notes in <span class="gradient-text">3 simple steps</span></h2>
+                <p>The easiest way to get beautiful, shareable meeting notes.</p>
+            </div>
+
+            <div class="steps-container">
+                <div class="step-item fade-in">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3>Start Tyna</h3>
+                        <p>Simply launch Tyna before your meeting begins. It works silently in the background, capturing high-fidelity audio directly from your system.</p>
+                    </div>
+                </div>
+                <div class="step-item fade-in">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3>Have Your Meeting</h3>
+                        <p>Tyna listens, transcribes, and assists in real-time without anyone knowing it's there. No bots joining the call.</p>
+                    </div>
+                </div>
+                <div class="step-item fade-in">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3>Get Your Notes</h3>
+                        <p>Instantly receive comprehensive, organized notes plus AI-generated insights and action items ready to export.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Undetectable Comparison -->
+    <section class="section-padding" id="undetectable">
+        <div class="container">
+            <div class="section-header fade-in">
+                <h2>No meeting bots. <span class="gradient-text">100% undetectable.</span></h2>
+                <p>How does Tyna stay invisible while others disrupt?</p>
+            </div>
+
+            <div class="comparison-grid">
+                <!-- Competitors -->
+                <div class="comparison-card comp-bad fade-in">
+                    <div class="comp-header">
+                        <h3>Other AI Notetakers</h3>
+                    </div>
+                    <ul class="comp-list">
+                        <li><i class="ph-bold ph-x icon-x"></i> Joins as an invasive participant</li>
+                        <li><i class="ph-bold ph-x icon-x"></i> Visible to everyone in the meeting</li>
+                        <li><i class="ph-bold ph-x icon-x"></i> Creates awkward bot announcements</li>
+                        <li><i class="ph-bold ph-x icon-x"></i> Disrupts meeting flow</li>
+                        <li><i class="ph-bold ph-x icon-x"></i> Reduces authenticity</li>
+                    </ul>
+                </div>
+
+                <!-- Tyna -->
+                <div class="comparison-card comp-good fade-in delay-100">
+                    <div class="comp-header">
+                        <h3>Tyna Assistant</h3>
+                    </div>
+                    <ul class="comp-list">
+                        <li><i class="ph-bold ph-check icon-check"></i> Completely invisible to others</li>
+                        <li><i class="ph-bold ph-check icon-check"></i> Undetectable by screen share</li>
+                        <li><i class="ph-bold ph-check icon-check"></i> Works locally on your device</li>
+                        <li><i class="ph-bold ph-check icon-check"></i> Natural, authentic conversations</li>
+                        <li><i class="ph-bold ph-check icon-check"></i> 100% privacy-focused design</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Specs / Stats -->
+    <section class="section-padding" id="specs" style="background: rgba(255,255,255,0.01);">
+        <div class="container">
+            <div class="section-header fade-in">
+                <h2>Built for <span class="gradient-text">performance</span></h2>
+                <p>Real-time multilingual transcription engine.</p>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-item fade-in delay-100">
+                    <h3>25+</h3>
+                    <span class="stat-label">Languages</span>
+                    <p class="stat-desc">English, Spanish, French, German, Japanese, and more.</p>
+                </div>
+                <div class="stat-item fade-in delay-200">
+                    <h3>200ms</h3>
+                    <span class="stat-label">Response Time</span>
+                    <p class="stat-desc">Lightning-fast transcription and AI responses.</p>
+                </div>
+                <div class="stat-item fade-in delay-300">
+                    <h3>97%</h3>
+                    <span class="stat-label">Accuracy</span>
+                    <p class="stat-desc">Industry-leading accuracy across all accents.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="section-padding" id="faq">
+        <div class="container">
+            <div class="section-header fade-in">
+                <h2>Frequently Asked Questions</h2>
+            </div>
+            
+            <div class="faq-grid fade-in">
+                <div class="faq-item">
+                    <div class="faq-header">
+                        Why invisible vs. a regular AI notetaker?
+                        <i class="ph-bold ph-caret-down faq-icon"></i>
+                    </div>
+                    <div class="faq-body">
+                        Regular notetakers join your calls as "bots", which can make clients feel uncomfortable or recorded. Tyna works locally on your device, listening to system audio just like you do, ensuring natural conversations without the awkward bot presence.
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-header">
+                        Who is Tyna for?
+                        <i class="ph-bold ph-caret-down faq-icon"></i>
+                    </div>
+                    <div class="faq-body">
+                        Tyna is built for professionals who attend high-stakes meetings: Sales Executives, Consultants, Recruiters, and Founders who need to focus on the conversation rather than taking notes.
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-header">
+                        Is my data secure and private?
+                        <i class="ph-bold ph-caret-down faq-icon"></i>
+                    </div>
+                    <div class="faq-body">
+                        Absolutely. Tyna processes audio locally and uses enterprise-grade encryption for all cloud features. We do not sell your data, and your transcripts are private to you.
+                    </div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-header">
+                        What platforms are supported?
+                        <i class="ph-bold ph-caret-down faq-icon"></i>
+                    </div>
+                    <div class="faq-body">
+                        Tyna works with Zoom, Google Meet, Microsoft Teams, Slack Huddles, and any other conferencing software because it captures audio at the system level on Windows and macOS.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="footer-cta fade-in">
+                <h2>Meeting AI that helps <span class="gradient-text">during</span> the call, not after.</h2>
+                <p style="margin: 16px 0 32px; color: var(--text-muted);">Try Tyna on your next meeting today.</p>
+                <a href="index.html" class="btn btn-primary">Get Tyna for Windows</a>
+            </div>
+
+            <div class="footer-grid">
+                <div class="footer-col">
+                    <h4>Product</h4>
+                    <ul>
+                        <li><a href="#">Features</a></li>
+                        <li><a href="#">Pricing</a></li>
+                        <li><a href="#">How It Works</a></li>
+                        <li><a href="#">FAQ</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>Use Cases</h4>
+                    <ul>
+                        <li><a href="#">Sales Teams</a></li>
+                        <li><a href="#">Consultants</a></li>
+                        <li><a href="#">Recruiters</a></li>
+                        <li><a href="#">Executives</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>Company</h4>
+                    <ul>
+                        <li><a href="#">About</a></li>
+                        <li><a href="#">Blog</a></li>
+                        <li><a href="#">Careers</a></li>
+                        <li><a href="#">Contact</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h4>Legal</h4>
+                    <ul>
+                        <li><a href="#">Privacy Policy</a></li>
+                        <li><a href="#">Terms of Service</a></li>
+                        <li><a href="#">Security</a></li>
+                        <li><a href="#">GDPR</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                &copy; 2025 Tyna. All rights reserved.
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Navbar Scroll Effect
+        const navbar = document.querySelector('.navbar');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 50) {
+                navbar.classList.add('scrolled');
+            } else {
+                navbar.classList.remove('scrolled');
+            }
+        });
+
+        // FAQ Accordion
+        const faqItems = document.querySelectorAll('.faq-item');
+        faqItems.forEach(item => {
+            const header = item.querySelector('.faq-header');
+            const body = item.querySelector('.faq-body');
+            
+            header.addEventListener('click', () => {
+                const isActive = item.classList.contains('active');
+                
+                // Close others
+                faqItems.forEach(otherItem => {
+                    const otherBody = otherItem.querySelector('.faq-body');
+                    otherItem.classList.remove('active');
+                    otherBody.style.maxHeight = null;
+                });
+
+                if (!isActive) {
+                    item.classList.add('active');
+                    body.style.maxHeight = body.scrollHeight + "px";
+                }
+            });
+        });
+
+        // Scroll Animation Observer
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: "0px 0px -50px 0px"
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.fade-in').forEach(el => {
+            observer.observe(el);
+        });
+    </script>
+</body>
+</html>

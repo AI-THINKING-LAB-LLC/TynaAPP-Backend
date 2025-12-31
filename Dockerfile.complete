@@ -1,0 +1,63 @@
+# Dockerfile Complet - Frontend + Backend avec serveur statique intégré
+# Utilise ce Dockerfile si vous voulez tout dans un seul container
+
+# Stage 1: Build Frontend
+FROM node:20-alpine AS frontend-builder
+
+WORKDIR /app
+
+COPY package*.json ./
+COPY tsconfig.json ./
+COPY vite.config.ts ./
+
+RUN npm ci
+
+COPY index.html ./
+COPY index.tsx ./
+COPY App.tsx ./
+COPY components/ ./components/
+COPY services/ ./services/
+COPY types.ts ./
+COPY vite-env.d.ts ./
+COPY public/ ./public/
+
+RUN npm run build
+
+# Stage 2: Production avec serveur intégré
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dependencies
+COPY package*.json ./
+RUN npm ci --only=production && npm install -g serve
+
+# Copy built frontend
+COPY --from=frontend-builder /app/dist ./dist
+
+# Copy backend server
+COPY server-assemblyai.js ./
+
+# Create startup script
+RUN echo '#!/bin/sh\n\
+# Start backend in background\n\
+node server-assemblyai.js &\n\
+BACKEND_PID=$!\n\
+# Start frontend server\n\
+serve -s dist -l 3000\n\
+# Wait for backend\n\
+wait $BACKEND_PID' > start.sh && chmod +x start.sh
+
+EXPOSE 3000 3001
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+
+CMD ["./start.sh"]
+
+
+
+
+
+
+

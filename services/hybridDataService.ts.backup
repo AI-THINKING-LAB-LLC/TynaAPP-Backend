@@ -1,0 +1,222 @@
+/**
+ * Hybrid Data Service
+ * Utilise Laravel API quand disponible, sinon fallback sur Supabase
+ */
+
+import { Meeting, ChatMessage, UserProfile } from '../types';
+import * as supabaseService from './supabaseService';
+import * as laravelApiService from './laravelApiService';
+
+// Configuration: Activer Laravel API
+const USE_LARAVEL_API = import.meta.env.VITE_USE_LARAVEL_API === 'true' || import.meta.env.VITE_LARAVEL_BACKEND_URL;
+
+// Helper to check if Laravel API is available
+const isLaravelAvailable = async (): Promise<boolean> => {
+  if (!USE_LARAVEL_API) return false;
+  
+  try {
+    const backendUrl = import.meta.env.VITE_LARAVEL_BACKEND_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:8001';
+    const response = await fetch(`${backendUrl}/api/users`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+    return response.status !== 404; // If endpoint exists (even if auth fails), API is available
+  } catch {
+    return false;
+  }
+};
+
+// Meetings
+export const fetchMeetings = async (): Promise<Meeting[]> => {
+  if (USE_LARAVEL_API && await isLaravelAvailable()) {
+    try {
+      console.log('[Hybrid] Using Laravel API for meetings');
+      return await laravelApiService.fetchLaravelMeetings();
+    } catch (error) {
+      console.warn('[Hybrid] Laravel API failed, falling back to Supabase:', error);
+    }
+  }
+  
+  console.log('[Hybrid] Using Supabase for meetings');
+  return await supabaseService.fetchMeetings();
+};
+
+export const createMeeting = async (meetingData: Partial<Meeting>): Promise<Meeting> => {
+  if (USE_LARAVEL_API && await isLaravelAvailable()) {
+    try {
+      const meeting = await laravelApiService.createLaravelMeeting(meetingData);
+      // Also sync to Supabase for compatibility
+      try {
+        // Use saveNewMeeting for Supabase (it handles transcripts too)
+        const title = meetingData.title || 'Untitled Meeting';
+        const startTime = meetingData.startedAt || new Date();
+        const durationSeconds = meetingData.duration || 0;
+        const transcript = meetingData.transcript || [];
+        await (supabaseService as any).saveNewMeeting(title, startTime, durationSeconds, transcript);
+      } catch (e) {
+        console.warn('[Hybrid] Failed to sync meeting to Supabase:', e);
+      }
+      return meeting;
+    } catch (error) {
+      console.warn('[Hybrid] Laravel API failed, using Supabase:', error);
+    }
+  }
+  
+  // Fallback to Supabase
+  const title = meetingData.title || 'Untitled Meeting';
+  const startTime = meetingData.startedAt || new Date();
+  const durationSeconds = meetingData.duration || 0;
+  const transcript = meetingData.transcript || [];
+  const saved = await (supabaseService as any).saveNewMeeting(title, startTime, durationSeconds, transcript);
+  return saved || meetingData as Meeting;
+};
+
+export const updateMeeting = async (id: string, meetingData: Partial<Meeting>): Promise<Meeting> => {
+  if (USE_LARAVEL_API && await isLaravelAvailable()) {
+    try {
+      const meeting = await laravelApiService.updateLaravelMeeting(id, meetingData);
+      // Also sync to Supabase
+      try {
+        await supabaseService.updateMeeting(id, meetingData);
+      } catch (e) {
+        console.warn('[Hybrid] Failed to sync meeting update to Supabase:', e);
+      }
+      return meeting;
+    } catch (error) {
+      console.warn('[Hybrid] Laravel API failed, using Supabase:', error);
+    }
+  }
+  
+  return await supabaseService.updateMeeting(id, meetingData);
+};
+
+export const deleteMeeting = async (id: string): Promise<void> => {
+  if (USE_LARAVEL_API && await isLaravelAvailable()) {
+    try {
+      await laravelApiService.deleteLaravelMeeting(id);
+      // Also delete from Supabase
+      try {
+        await supabaseService.deleteMeeting(id);
+      } catch (e) {
+        console.warn('[Hybrid] Failed to delete meeting from Supabase:', e);
+      }
+      return;
+    } catch (error) {
+      console.warn('[Hybrid] Laravel API failed, using Supabase:', error);
+    }
+  }
+  
+  return await supabaseService.deleteMeeting(id);
+};
+
+// Chat Messages
+export const fetchChatMessages = async (meetingId?: string): Promise<ChatMessage[]> => {
+  if (USE_LARAVEL_API && await isLaravelAvailable()) {
+    try {
+      return await laravelApiService.fetchLaravelChatMessages(meetingId);
+    } catch (error) {
+      console.warn('[Hybrid] Laravel API failed, falling back to Supabase:', error);
+    }
+  }
+  
+  // Supabase doesn't have a direct chat messages service, so we'll use Laravel or return empty
+  return [];
+};
+
+export const createChatMessage = async (messageData: Partial<ChatMessage>): Promise<ChatMessage> => {
+  if (USE_LARAVEL_API && await isLaravelAvailable()) {
+    try {
+      return await laravelApiService.createLaravelChatMessage(messageData);
+    } catch (error) {
+      console.warn('[Hybrid] Laravel API failed:', error);
+      throw error;
+    }
+  }
+  
+  throw new Error('Chat messages require Laravel API');
+};
+
+// Profiles
+export const getCurrentUserProfile = async (): Promise<UserProfile | null> => {
+  // Always use Supabase for auth/profile for now
+  return await supabaseService.getCurrentUserProfile();
+};
+
+export const updateUserProfile = async (profileData: Partial<UserProfile>): Promise<UserProfile> => {
+  if (USE_LARAVEL_API && await isLaravelAvailable()) {
+    try {
+      const profile = await getCurrentUserProfile();
+      if (profile) {
+        const updated = await laravelApiService.updateLaravelProfile(profile.id, profileData);
+        // Also sync to Supabase
+        try {
+          await supabaseService.updateUserProfile(profileData);
+        } catch (e) {
+          console.warn('[Hybrid] Failed to sync profile to Supabase:', e);
+        }
+        return updated as UserProfile;
+      }
+    } catch (error) {
+      console.warn('[Hybrid] Laravel API failed, using Supabase:', error);
+    }
+  }
+  
+  return await supabaseService.updateUserProfile(profileData);
+};
+
+// Sync function: Sync all data from Supabase to Laravel
+export const syncAllDataToLaravel = async (): Promise<{
+  meetings: number;
+  messages: number;
+  transcripts: number;
+}> => {
+  if (!USE_LARAVEL_API) {
+    throw new Error('Laravel API is not enabled');
+  }
+
+  console.log('[Sync] Starting full data sync to Laravel...');
+  
+  const stats = {
+    meetings: 0,
+    messages: 0,
+    transcripts: 0,
+  };
+
+  try {
+    // Sync meetings
+    const meetings = await supabaseService.fetchMeetings();
+    const syncedMeetings = await laravelApiService.syncMeetingsToLaravel(meetings);
+    stats.meetings = syncedMeetings.length;
+    console.log(`[Sync] Synced ${stats.meetings} meetings`);
+
+    // Sync chat messages and transcripts for each meeting
+    for (const meeting of meetings) {
+      if (meeting.chatMessages && meeting.chatMessages.length > 0) {
+        try {
+          const synced = await laravelApiService.syncChatMessagesToLaravel(meeting.id, meeting.chatMessages);
+          stats.messages += synced.length;
+        } catch (e) {
+          console.warn(`[Sync] Failed to sync messages for meeting ${meeting.id}:`, e);
+        }
+      }
+
+      if (meeting.transcript && meeting.transcript.length > 0) {
+        try {
+          const synced = await laravelApiService.syncTranscriptsToLaravel(meeting.id, meeting.transcript);
+          stats.transcripts += synced.length;
+        } catch (e) {
+          console.warn(`[Sync] Failed to sync transcripts for meeting ${meeting.id}:`, e);
+        }
+      }
+    }
+
+    console.log('[Sync] Sync complete:', stats);
+    return stats;
+  } catch (error) {
+    console.error('[Sync] Sync failed:', error);
+    throw error;
+  }
+};
+

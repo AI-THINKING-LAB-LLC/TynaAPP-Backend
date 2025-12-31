@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Audio Test</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        button { padding: 10px 20px; margin: 10px; font-size: 16px; }
+        #log { background: #f0f0f0; padding: 10px; margin-top: 20px; height: 400px; overflow-y: auto; font-family: monospace; font-size: 12px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+    </style>
+</head>
+<body>
+    <h1>Simple Audio Test (Screen + Microphone)</h1>
+    <button id="start">Start Recording (Screen + Mic)</button>
+    <button id="stop" disabled>Stop Recording</button>
+    <div id="log"></div>
+
+    <script>
+        let audioContext = null;
+        let screenStream = null;
+        let micStream = null;
+        let processor = null;
+        let ws = null;
+        let buffer = [];
+        const bufferSize = 8192;
+
+        const log = (msg, type = 'info') => {
+            const div = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            div.innerHTML += `<div class="${type}">[${time}] ${msg}</div>`;
+            div.scrollTop = div.scrollHeight;
+            console.log(msg);
+        };
+
+        document.getElementById('start').onclick = async () => {
+            try {
+                audioContext = new AudioContext({ sampleRate: 16000 });
+                log(`✓ AudioContext created (state: ${audioContext.state})`, 'success');
+
+                // 1. Get screen audio
+                log('🖥️ Requesting screen audio capture...', 'info');
+                screenStream = await navigator.mediaDevices.getDisplayMedia({ 
+                    video: true,
+                    audio: {
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false
+                    } 
+                });
+                
+                const audioTracks = screenStream.getAudioTracks();
+                if (audioTracks.length === 0) {
+                    log('⚠️ No audio track in screen capture. Make sure to check "Share audio"', 'error');
+                }
+                
+                // Stop video tracks, we only need audio
+                screenStream.getVideoTracks().forEach(track => track.stop());
+                log('✓ Screen audio captured', 'success');
+
+                // 2. Get microphone
+                log('🎤 Requesting microphone access...', 'info');
+                micStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    } 
+                });
+                log('✓ Microphone access granted', 'success');
+
+                // 3. Mix both audio sources
+                const destination = audioContext.createMediaStreamDestination();
+                
+                if (audioTracks.length > 0) {
+                    const screenSource = audioContext.createMediaStreamSource(screenStream);
+                    screenSource.connect(destination);
+                    log('✓ Screen audio connected to mixer', 'success');
+                }
+                
+                const micSource = audioContext.createMediaStreamSource(micStream);
+                micSource.connect(destination);
+                log('✓ Microphone connected to mixer', 'success');
+
+                // 4. Use the mixed stream
+                const mixedStream = destination.stream;
+                const mixedSource = audioContext.createMediaStreamSource(mixedStream);
+                log('✓ Mixed audio source created', 'success');
+
+                // Connect to WebSocket FIRST
+                log('🔌 Connecting to WebSocket...', 'info');
+                ws = new WebSocket('ws://localhost:3001/ws');
+                ws.binaryType = 'arraybuffer';
+                
+                ws.onopen = () => {
+                    log('✓ WebSocket connected!', 'success');
+                    document.getElementById('start').disabled = true;
+                    document.getElementById('stop').disabled = false;
+                };
+
+                ws.onmessage = (event) => {
+                    if (typeof event.data === 'string') {
+                        const data = JSON.parse(event.data);
+                        log(`📨 Message: ${data.type} - ${JSON.stringify(data).substring(0, 100)}`, 'info');
+                        
+                        if (data.type === 'Turn') {
+                            if (data.utterance) {
+                                log(`🗣️ Utterance: "${data.utterance}"`, 'info');
+                            }
+                            if (data.end_of_turn && data.transcript) {
+                                log(`📝 TRANSCRIPT: "${data.transcript}"`, 'success');
+                            }
+                        }
+                    } else {
+                        log(`📨 Binary message received: ${event.data.byteLength} bytes`, 'info');
+                    }
+                };
+
+                ws.onerror = (err) => {
+                    log('✗ WebSocket error', 'error');
+                    console.error(err);
+                };
+
+                ws.onclose = (event) => {
+                    log(`WebSocket closed: ${event.code} - ${event.reason}`, 'error');
+                };
+
+                // Wait for WebSocket to open
+                await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => reject(new Error('Timeout')), 5000);
+                    ws.addEventListener('open', () => {
+                        clearTimeout(timeout);
+                        resolve();
+                    });
+                    ws.addEventListener('error', () => {
+                        clearTimeout(timeout);
+                        reject(new Error('Connection failed'));
+                    });
+                });
+
+                // NOW setup audio processing
+                log('🎵 Setting up audio processor...', 'info');
+                processor = audioContext.createScriptProcessor(4096, 1, 1);
+                mixedSource.connect(processor);
+                processor.connect(audioContext.destination);
+                log('✓ Audio processor connected', 'success');
+
+                processor.onaudioprocess = (e) => {
+                    const inputData = e.inputBuffer.getChannelData(0);
+                    
+                    for (let i = 0; i < inputData.length; i++) {
+                        buffer.push(inputData[i]);
+                    }
+                    
+                    if (buffer.length >= bufferSize && ws && ws.readyState === WebSocket.OPEN) {
+                        const int16 = new Int16Array(buffer.length);
+                        for (let i = 0; i < buffer.length; i++) {
+                            const s = Math.max(-1, Math.min(1, buffer[i]));
+                            int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                        }
+                        log(`📤 Sending ${int16.buffer.byteLength} bytes`, 'info');
+                        ws.send(int16.buffer);
+                        buffer = [];
+                    }
+                };
+
+                log('✅ READY! Start speaking...', 'success');
+
+            } catch (err) {
+                log(`✗ Error: ${err.message}`, 'error');
+                console.error(err);
+            }
+        };
+
+        document.getElementById('stop').onclick = () => {
+            log('🛑 Stopping...', 'info');
+            
+            if (processor) {
+                processor.disconnect();
+                processor = null;
+            }
+            if (screenStream) {
+                screenStream.getTracks().forEach(t => t.stop());
+                screenStream = null;
+            }
+            if (micStream) {
+                micStream.getTracks().forEach(t => t.stop());
+                micStream = null;
+            }
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+            
+            document.getElementById('start').disabled = false;
+            document.getElementById('stop').disabled = true;
+            log('✓ Stopped', 'success');
+        };
+    </script>
+</body>
+</html>

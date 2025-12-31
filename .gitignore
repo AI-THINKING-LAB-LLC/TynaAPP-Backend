@@ -1,0 +1,46 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Environment variables (SECURITY: Never commit secrets!)
+.env
+.env.local
+.env.production
+.env.development
+.env.*.local
+
+# Backend specific
+TynaAPP-Backend/.env
+TynaAPP-Backend/vendor/
+TynaAPP-Backend/storage/logs/*
+TynaAPP-Backend/storage/framework/cache/*
+TynaAPP-Backend/storage/framework/sessions/*
+TynaAPP-Backend/storage/framework/views/*
+TynaAPP-Backend/bootstrap/cache/*
+TynaAPP-Backend/database/*.sqlite
+TynaAPP-Backend/database/*.sqlite-journal
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Documentation files (Markdown)
+*.md
+!README.md
