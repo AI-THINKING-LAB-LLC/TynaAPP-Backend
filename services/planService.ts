@@ -75,9 +75,28 @@ export const createSubscription = async (
   successUrl: string,
   cancelUrl: string
 ): Promise<{ checkout_url: string }> => {
-  // Always try to use Laravel API if VITE_LARAVEL_BACKEND_URL is set
-  // Don't rely on isLaravelAvailable() for subscriptions as it may fail due to auth or CORS
-  const backendUrl = import.meta.env.VITE_LARAVEL_BACKEND_URL || import.meta.env.VITE_BACKEND_URL;
+  // Get backend URL with fallback (same logic as laravelApiService)
+  let backendUrl = import.meta.env.VITE_LARAVEL_BACKEND_URL;
+  if (backendUrl) {
+    backendUrl = backendUrl.replace(/\/$/, '');
+  } else {
+    const fallbackUrl = import.meta.env.VITE_BACKEND_URL;
+    if (fallbackUrl && !fallbackUrl.includes('3001') && !fallbackUrl.includes('localhost')) {
+      backendUrl = fallbackUrl.replace(/\/$/, '');
+    } else {
+      // Production fallback (same as laravelApiService)
+      const isProduction = typeof window !== 'undefined' && 
+        !window.location.hostname.includes('localhost') && 
+        !window.location.hostname.includes('127.0.0.1');
+      
+      if (isProduction) {
+        backendUrl = 'https://enthusiastic-success-production-2c5c.up.railway.app';
+        console.warn('[Plan Service] ⚠️ VITE_LARAVEL_BACKEND_URL not set, using hardcoded production URL:', backendUrl);
+      } else {
+        backendUrl = 'http://localhost:8001';
+      }
+    }
+  }
   
   console.log('[Plan Service] createSubscription called', {
     planId,
@@ -87,13 +106,9 @@ export const createSubscription = async (
     backendUrl,
   });
   
-  if (!backendUrl && !USE_LARAVEL_API) {
-    console.error('[Plan Service] No Laravel backend URL configured');
-    throw new Error('Laravel API not available for subscriptions. Please configure VITE_LARAVEL_BACKEND_URL in your environment variables.');
-  }
-  
+  // Always try to use Laravel API (backendUrl is now guaranteed to be set)
   try {
-    console.log('[Plan Service] Creating subscription with Laravel API, backend URL:', backendUrl || 'default');
+    console.log('[Plan Service] Creating subscription with Laravel API, backend URL:', backendUrl);
     return await laravelApiService.createLaravelSubscription(planId, successUrl, cancelUrl);
   } catch (error) {
     console.error('[Plan Service] Failed to create subscription:', error);
