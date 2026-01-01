@@ -19,6 +19,7 @@ COPY index.tsx ./
 COPY App.tsx ./
 COPY components/ ./components/
 COPY services/ ./services/
+COPY src/ ./src/
 COPY types.ts ./
 COPY vite-env.d.ts ./
 COPY public/ ./public/
