@@ -16,21 +16,34 @@ const getLaravelBackendUrl = (): string => {
   
   // Priorité 2: VITE_BACKEND_URL (mais attention, c'est pour le WebSocket)
   const fallbackUrl = import.meta.env.VITE_BACKEND_URL;
-  if (fallbackUrl && !fallbackUrl.includes('3001')) {
+  if (fallbackUrl && !fallbackUrl.includes('3001') && !fallbackUrl.includes('localhost')) {
     const url = fallbackUrl.replace(/\/$/, '');
     console.log('[Laravel Auth] Using backend URL from VITE_BACKEND_URL:', url);
     return url;
   }
   
-  // Priorité 3: Détection automatique depuis window (production)
-  if (typeof window !== 'undefined' && !import.meta.env.DEV) {
-    const url = window.location.origin.replace(':5173', ':8000').replace(':3000', ':8000');
-    console.log('[Laravel Auth] Using backend URL from window:', url);
+  // Détection si on est en production (pas localhost)
+  const isProduction = typeof window !== 'undefined' && 
+    !window.location.hostname.includes('localhost') && 
+    !window.location.hostname.includes('127.0.0.1');
+  
+  // En production, NE JAMAIS utiliser window.location.origin car frontend et backend sont séparés
+  if (isProduction) {
+    const errorMsg = 'VITE_LARAVEL_BACKEND_URL is not set in production. Please configure it in Railway variables.';
+    console.error('[Laravel Auth] ❌', errorMsg);
+    console.error('[Laravel Auth] 💡 Solution: Add VITE_LARAVEL_BACKEND_URL=https://enthusiastic-success-production-2c5c.up.railway.app in Railway variables and redeploy');
+    throw new Error(errorMsg);
+  }
+  
+  // En développement: Détection automatique depuis window (seulement pour localhost)
+  if (typeof window !== 'undefined' && import.meta.env.DEV) {
+    const url = window.location.origin.replace(':5173', ':8001').replace(':3000', ':8001').replace(':5174', ':8001');
+    console.log('[Laravel Auth] Using backend URL from window (dev):', url);
     return url;
   }
   
-  // Par défaut: localhost:8000
-  const defaultUrl = 'http://localhost:8000';
+  // Par défaut: localhost:8001 (port du backend Laravel)
+  const defaultUrl = 'http://localhost:8001';
   console.log('[Laravel Auth] Using default backend URL:', defaultUrl);
   console.warn('[Laravel Auth] ⚠️ VITE_LARAVEL_BACKEND_URL not set! Using default:', defaultUrl);
   return defaultUrl;

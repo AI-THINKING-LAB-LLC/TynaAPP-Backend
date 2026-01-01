@@ -23,15 +23,36 @@ export interface Plan {
 
 // Configuration
 const getLaravelBackendUrl = (): string => {
-  const backendUrl = import.meta.env.VITE_LARAVEL_BACKEND_URL || import.meta.env.VITE_BACKEND_URL;
+  // Priorité 1: VITE_LARAVEL_BACKEND_URL
+  const backendUrl = import.meta.env.VITE_LARAVEL_BACKEND_URL;
   if (backendUrl) {
     return backendUrl.replace(/\/$/, '');
   }
-  // Fallback to localhost for development
-  if (typeof window !== 'undefined' && !import.meta.env.DEV) {
-    return window.location.origin.replace(':5173', ':8000');
+  
+  // Priorité 2: VITE_BACKEND_URL (mais seulement si ce n'est pas localhost/3001)
+  const fallbackUrl = import.meta.env.VITE_BACKEND_URL;
+  if (fallbackUrl && !fallbackUrl.includes('3001') && !fallbackUrl.includes('localhost')) {
+    return fallbackUrl.replace(/\/$/, '');
   }
-  return 'http://localhost:8000';
+  
+  // Détection si on est en production
+  const isProduction = typeof window !== 'undefined' && 
+    !window.location.hostname.includes('localhost') && 
+    !window.location.hostname.includes('127.0.0.1');
+  
+  // En production, NE JAMAIS utiliser window.location.origin
+  if (isProduction) {
+    console.error('[Laravel API] ❌ VITE_LARAVEL_BACKEND_URL is not set in production');
+    console.error('[Laravel API] 💡 Solution: Add VITE_LARAVEL_BACKEND_URL=https://enthusiastic-success-production-2c5c.up.railway.app in Railway variables');
+    throw new Error('VITE_LARAVEL_BACKEND_URL is required in production');
+  }
+  
+  // En développement: Fallback to localhost
+  if (typeof window !== 'undefined' && import.meta.env.DEV) {
+    return window.location.origin.replace(':5173', ':8001').replace(':3000', ':8001');
+  }
+  
+  return 'http://localhost:8001';
 };
 
 const API_BASE_URL = getLaravelBackendUrl();
