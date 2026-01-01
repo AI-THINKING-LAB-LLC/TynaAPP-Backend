@@ -15,8 +15,17 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // CORS must be at the top to handle preflight requests
         $middleware->api(prepend: [
             \Illuminate\Http\Middleware\HandleCors::class,
+        ]);
+        
+        // Trust proxies for Railway (HTTPS detection)
+        $middleware->trustProxies(at: '*');
+        
+        // Ensure CORS is enabled globally for API routes
+        $middleware->validateCsrfTokens(except: [
+            'api/*',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
