@@ -40,11 +40,12 @@ const getLaravelBackendUrl = (): string => {
     !window.location.hostname.includes('localhost') && 
     !window.location.hostname.includes('127.0.0.1');
   
-  // En production, NE JAMAIS utiliser window.location.origin
+  // En production, utiliser l'URL du backend Laravel connue
   if (isProduction) {
-    console.error('[Laravel API] ❌ VITE_LARAVEL_BACKEND_URL is not set in production');
-    console.error('[Laravel API] 💡 Solution: Add VITE_LARAVEL_BACKEND_URL=https://enthusiastic-success-production-2c5c.up.railway.app in Railway variables');
-    throw new Error('VITE_LARAVEL_BACKEND_URL is required in production');
+    const productionBackendUrl = 'https://enthusiastic-success-production-2c5c.up.railway.app';
+    console.warn('[Laravel API] ⚠️ VITE_LARAVEL_BACKEND_URL not set, using hardcoded production URL:', productionBackendUrl);
+    console.warn('[Laravel API] 💡 For better reliability, set VITE_LARAVEL_BACKEND_URL=https://enthusiastic-success-production-2c5c.up.railway.app in Railway variables');
+    return productionBackendUrl;
   }
   
   // En développement: Fallback to localhost

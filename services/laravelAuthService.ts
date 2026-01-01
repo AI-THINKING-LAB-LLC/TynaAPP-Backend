@@ -10,7 +10,7 @@ const getLaravelBackendUrl = (): string => {
   const backendUrl = import.meta.env.VITE_LARAVEL_BACKEND_URL;
   if (backendUrl) {
     const url = backendUrl.replace(/\/$/, '');
-    console.log('[Laravel Auth] Using backend URL from VITE_LARAVEL_BACKEND_URL:', url);
+    console.log('[Laravel Auth] ✅ Using backend URL from VITE_LARAVEL_BACKEND_URL:', url);
     return url;
   }
   
@@ -18,7 +18,7 @@ const getLaravelBackendUrl = (): string => {
   const fallbackUrl = import.meta.env.VITE_BACKEND_URL;
   if (fallbackUrl && !fallbackUrl.includes('3001') && !fallbackUrl.includes('localhost')) {
     const url = fallbackUrl.replace(/\/$/, '');
-    console.log('[Laravel Auth] Using backend URL from VITE_BACKEND_URL:', url);
+    console.log('[Laravel Auth] ✅ Using backend URL from VITE_BACKEND_URL:', url);
     return url;
   }
   
@@ -27,12 +27,13 @@ const getLaravelBackendUrl = (): string => {
     !window.location.hostname.includes('localhost') && 
     !window.location.hostname.includes('127.0.0.1');
   
-  // En production, NE JAMAIS utiliser window.location.origin car frontend et backend sont séparés
+  // En production, utiliser l'URL du backend Laravel connue
   if (isProduction) {
-    const errorMsg = 'VITE_LARAVEL_BACKEND_URL is not set in production. Please configure it in Railway variables.';
-    console.error('[Laravel Auth] ❌', errorMsg);
-    console.error('[Laravel Auth] 💡 Solution: Add VITE_LARAVEL_BACKEND_URL=https://enthusiastic-success-production-2c5c.up.railway.app in Railway variables and redeploy');
-    throw new Error(errorMsg);
+    // URL du backend Laravel en production
+    const productionBackendUrl = 'https://enthusiastic-success-production-2c5c.up.railway.app';
+    console.warn('[Laravel Auth] ⚠️ VITE_LARAVEL_BACKEND_URL not set, using hardcoded production URL:', productionBackendUrl);
+    console.warn('[Laravel Auth] 💡 For better reliability, set VITE_LARAVEL_BACKEND_URL=https://enthusiastic-success-production-2c5c.up.railway.app in Railway variables and redeploy');
+    return productionBackendUrl;
   }
   
   // En développement: Détection automatique depuis window (seulement pour localhost)
