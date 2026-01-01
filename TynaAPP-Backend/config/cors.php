@@ -26,9 +26,14 @@ return [
         'http://localhost:5173',
         'http://127.0.0.1:5173',
         'http://127.0.0.1:3000',
+        // Production URLs
+        'https://tynalivefront-production.up.railway.app',
+        'https://enthusiastic-success-production-2c5c.up.railway.app',
     ],
 
-    'allowed_origins_patterns' => [],
+    'allowed_origins_patterns' => [
+        '#^https://.*\.up\.railway\.app$#', // Allow all Railway subdomains
+    ],
 
     'allowed_headers' => ['*'],
 
