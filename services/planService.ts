@@ -9,6 +9,34 @@ import { apiRequest } from './laravelApiService';
 
 const USE_LARAVEL_API = import.meta.env.VITE_USE_LARAVEL_API === 'true' || import.meta.env.VITE_LARAVEL_BACKEND_URL;
 
+// Helper to get backend URL (same logic as other services)
+const getBackendUrl = (): string => {
+  // Priorité 1: VITE_LARAVEL_BACKEND_URL
+  const backendUrl = import.meta.env.VITE_LARAVEL_BACKEND_URL;
+  if (backendUrl) {
+    return backendUrl.replace(/\/$/, '');
+  }
+  
+  // Priorité 2: VITE_BACKEND_URL (mais seulement si ce n'est pas localhost/3001)
+  const fallbackUrl = import.meta.env.VITE_BACKEND_URL;
+  if (fallbackUrl && !fallbackUrl.includes('3001') && !fallbackUrl.includes('localhost')) {
+    return fallbackUrl.replace(/\/$/, '');
+  }
+  
+  // Détection si on est en production
+  const isProduction = typeof window !== 'undefined' && 
+    !window.location.hostname.includes('localhost') && 
+    !window.location.hostname.includes('127.0.0.1');
+  
+  // En production, utiliser l'URL hardcodée
+  if (isProduction) {
+    return 'https://enthusiastic-success-production-2c5c.up.railway.app';
+  }
+  
+  // En développement: Fallback to localhost
+  return 'http://localhost:8001';
+};
+
 // Helper to check if Laravel API is available
 const isLaravelAvailable = async (): Promise<boolean> => {
   if (!USE_LARAVEL_API) {
@@ -17,7 +45,7 @@ const isLaravelAvailable = async (): Promise<boolean> => {
   }
   
   try {
-    const backendUrl = import.meta.env.VITE_LARAVEL_BACKEND_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+    const backendUrl = getBackendUrl();
     console.log('[Plan Service] Checking Laravel availability at:', backendUrl);
     const response = await fetch(`${backendUrl}/api/plans`, {
       method: 'GET',
