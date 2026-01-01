@@ -35,7 +35,13 @@ fi
 echo "📦 Running migrations..."
 php artisan migrate --force || true
 
-# Clear and cache config
+# Clear cache first to ensure fresh config
+echo "🧹 Clearing cache..."
+php artisan config:clear || true
+php artisan cache:clear || true
+php artisan route:clear || true
+
+# Cache config for production (after clearing)
 echo "🔧 Optimizing application..."
 php artisan config:cache || true
 php artisan route:cache || true
