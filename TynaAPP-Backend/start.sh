@@ -35,6 +35,10 @@ fi
 echo "📦 Running migrations..."
 php artisan migrate --force || true
 
+# Create admin user if it doesn't exist
+echo "👤 Creating admin user..."
+php artisan app:create-admin-user --email=admin@admin.com --password=password --name=Admin || true
+
 # Clear cache first to ensure fresh config
 echo "🧹 Clearing cache..."
 php artisan config:clear || true
