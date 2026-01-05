@@ -44,12 +44,20 @@ echo "🧹 Clearing cache..."
 php artisan config:clear || true
 php artisan cache:clear || true
 php artisan route:clear || true
+php artisan view:clear || true
+
+# Remove cached route files if they exist
+rm -f bootstrap/cache/routes-v7.php bootstrap/cache/routes.php 2>/dev/null || true
 
 # Cache config for production (after clearing)
 echo "🔧 Optimizing application..."
 php artisan config:cache || true
 php artisan route:cache || true
 php artisan view:cache || true
+
+# Verify routes are registered
+echo "🔍 Verifying API routes..."
+php artisan route:list --path=api | head -10 || echo "⚠️  Could not list routes"
 
 # Start server
 echo "✅ Starting server on 0.0.0.0:$PORT"
