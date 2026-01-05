@@ -19,16 +19,8 @@ dist-ssr
 .env.development
 .env.*.local
 
-# Backend specific
-TynaAPP-Backend/.env
-TynaAPP-Backend/vendor/
-TynaAPP-Backend/storage/logs/*
-TynaAPP-Backend/storage/framework/cache/*
-TynaAPP-Backend/storage/framework/sessions/*
-TynaAPP-Backend/storage/framework/views/*
-TynaAPP-Backend/bootstrap/cache/*
-TynaAPP-Backend/database/*.sqlite
-TynaAPP-Backend/database/*.sqlite-journal
+# Backend specific - Exclure tout le dossier backend du dépôt frontend
+TynaAPP-Backend/
 
 # Editor directories and files
 .vscode/*
