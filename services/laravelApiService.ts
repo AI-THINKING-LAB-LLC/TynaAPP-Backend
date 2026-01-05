@@ -372,7 +372,6 @@ const mapLaravelMeeting = (laravelMeeting: any): Meeting => {
     actionItems: laravelMeeting.meeting_summaries?.[0]?.action_items || [],
     userNotes: laravelMeeting.meeting_summaries?.[0]?.user_notes || laravelMeeting.user_notes || '',
     chatMessages: laravelMeeting.chat_messages ? laravelMeeting.chat_messages.map(mapLaravelChatMessage) : [],
-    userNotes: laravelMeeting.user_notes || '',
     startedAt: laravelMeeting.started_at ? new Date(laravelMeeting.started_at) : new Date(),
     endedAt: laravelMeeting.ended_at ? new Date(laravelMeeting.ended_at) : null,
   };
